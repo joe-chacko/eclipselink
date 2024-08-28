@@ -105,6 +105,7 @@ public class JUnitJPQLModifyTest extends JUnitTestCase {
         suite.addTest(new JUnitJPQLModifyTest("updateUnqualifiedAttributeInWhereWithInputParameter"));
         suite.addTest(new JUnitJPQLModifyTest("simpleDelete"));
         suite.addTest(new JUnitJPQLModifyTest("simpleUpdateWithInputParameters"));
+        suite.addTest(new JUnitJPQLModifyTest("simpleUpdateWithoutEntityIdentificationVariable"));
 
         return suite;
     }
@@ -158,6 +159,43 @@ public class JUnitJPQLModifyTest extends JUnitTestCase {
         }
     }
 
+    public void simpleUpdateWithoutEntityIdentificationVariable()
+    {
+        if ((getPersistenceUnitServerSession()).getPlatform().isSymfoware()) {
+            getPersistenceUnitServerSession().logMessage("Test simpleUpdateWithoutEntityIdentificationVariable skipped for this platform, "
+                    + "Symfoware doesn't support UpdateAll/DeleteAll on multi-table objects (see rfe 298193).");
+            return;
+        }
+
+        System.out.println("### counting rows");
+
+        EntityManager em = createEntityManager();
+        int count = executeJPQLReturningInt(em, "SELECT COUNT(e) FROM Employee e");
+
+        System.out.println("### employee count: " + count);
+
+        System.out.println("### starting transaction");
+        beginTransaction(em);
+
+        try {
+            // test query
+            Query q = em.createQuery("UPDATE Employee SET firstName = 'CHANGED'");
+            System.out.println("### executing query");
+            int updated = q.executeUpdate();
+            assertEquals("simpleUpdateWithoutEntityIdentificationVariable: wrong number of updated instances", count, updated);
+            System.out.println("### committing transaction");
+            commitTransaction(em);
+
+            // check database changes
+            int nr = executeJPQLReturningInt(em, "SELECT COUNT(e) FROM Employee e WHERE e.firstName = 'CHANGED'");
+            assertEquals("simpleUpdateWithoutEntityIdentificationVariable: unexpected number of changed values in the database", count, nr);
+        } finally {
+            if (isTransactionActive(em)){
+                System.out.println("### rolling back transaction");
+                rollbackTransaction(em);
+            }
+        }
+    }
     public void updateWithSubquery()
     {
         if ((getPersistenceUnitServerSession()).getPlatform().isSymfoware()) {
