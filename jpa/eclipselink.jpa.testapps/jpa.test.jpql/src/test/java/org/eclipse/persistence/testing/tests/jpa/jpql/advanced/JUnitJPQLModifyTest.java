@@ -25,6 +25,7 @@ import org.eclipse.persistence.testing.framework.jpa.junit.JUnitTestCase;
 import org.eclipse.persistence.testing.models.jpa.advanced.AdvancedTableCreator;
 import org.eclipse.persistence.testing.models.jpa.advanced.Employee;
 import org.eclipse.persistence.testing.models.jpa.advanced.EmployeePopulator;
+import org.eclipse.persistence.testing.models.jpa.advanced.Woman;
 import org.eclipse.persistence.testing.tests.jpa.jpql.JUnitDomainObjectComparer;
 
 import java.util.Calendar;
@@ -167,28 +168,68 @@ public class JUnitJPQLModifyTest extends JUnitTestCase {
             return;
         }
 
-        System.out.println("### counting rows");
+        final EntityManager em = createEntityManager();
+        System.out.println("### creating woman");
+        Woman cc = new Woman("Cocoa", "Channel");
 
-        EntityManager em = createEntityManager();
-        int count = executeJPQLReturningInt(em, "SELECT COUNT(e) FROM Employee e");
-
-        System.out.println("### employee count: " + count);
-
+        System.out.println("### persisting woman: " + cc);
         System.out.println("### starting transaction");
         beginTransaction(em);
-
+        final int id;
         try {
-            // test query
-            Query q = em.createQuery("UPDATE Employee SET firstName = 'CHANGED'");
-            System.out.println("### executing query");
-            int updated = q.executeUpdate();
-            assertEquals("simpleUpdateWithoutEntityIdentificationVariable: wrong number of updated instances", count, updated);
+            em.persist(cc);
             System.out.println("### committing transaction");
             commitTransaction(em);
+            int nr = executeJPQLReturningInt(em, "SELECT COUNT(w) FROM Woman w WHERE w.firstName = 'Cocoa'");
+            assertEquals("there should be 1 matching woman in the database", 1, nr);
+            id = cc.getId();
+            System.out.println("### id: " + id);
+        } finally {
+            if (isTransactionActive(em)){
+                System.out.println("### rolling back transaction");
+                rollbackTransaction(em);
+            }
+        }
 
+        System.out.println("### Updating first name using an identity variable");
+        System.out.println("### starting transaction");
+        beginTransaction(em);
+        try {
+            // test query
+            Query q = em.createQuery("UPDATE Woman w SET w.firstName=:fn WHERE w.id=:id")
+                    .setParameter("fn", "Coco")
+                    .setParameter("id", id);
+            System.out.println("### updating Cocoa to Coco using variable");
+            int updated = q.executeUpdate();
+            assertEquals("there should be 1 updated row", 1, updated);
+            System.out.println("### committing transaction");
+            commitTransaction(em);
             // check database changes
-            int nr = executeJPQLReturningInt(em, "SELECT COUNT(e) FROM Employee e WHERE e.firstName = 'CHANGED'");
-            assertEquals("simpleUpdateWithoutEntityIdentificationVariable: unexpected number of changed values in the database", count, nr);
+            int nr = executeJPQLReturningInt(em, "SELECT COUNT(w) FROM Woman w WHERE w.firstName = 'Coco'");
+            assertEquals("there should be 1 matching woman in the database", 1, nr);
+        } finally {
+            if (isTransactionActive(em)){
+                System.out.println("### rolling back transaction");
+                rollbackTransaction(em);
+            }
+        }
+
+        System.out.println("### Updating last name using no identity variable");
+        System.out.println("### starting transaction");
+        beginTransaction(em);
+        try {
+            // test query
+            Query q = em.createQuery("UPDATE Woman SET lastName=:ln WHERE id(this)=:id")
+                    .setParameter("ln", "Chanel")
+                    .setParameter("id", id);
+            System.out.println("### updating Channel to Chanel using variable");
+            int updated = q.executeUpdate();
+            assertEquals("there should be 1 updated row", 1, updated);
+            System.out.println("### committing transaction");
+            commitTransaction(em);
+            // check database changes
+            int nr = executeJPQLReturningInt(em, "SELECT COUNT(w) FROM Woman w WHERE w.lastName = 'Chanel'");
+            assertEquals("there should be 1 matching woman in the database", 1, nr);
         } finally {
             if (isTransactionActive(em)){
                 System.out.println("### rolling back transaction");
@@ -196,6 +237,7 @@ public class JUnitJPQLModifyTest extends JUnitTestCase {
             }
         }
     }
+
     public void updateWithSubquery()
     {
         if ((getPersistenceUnitServerSession()).getPlatform().isSymfoware()) {
