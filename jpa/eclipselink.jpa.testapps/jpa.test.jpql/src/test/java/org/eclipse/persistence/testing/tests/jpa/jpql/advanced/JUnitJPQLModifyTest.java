@@ -196,7 +196,7 @@ public class JUnitJPQLModifyTest extends JUnitTestCase {
         beginTransaction(em);
         try {
             // test query
-            Query q = em.createQuery("UPDATE Woman w SET w.firstName=:fn WHERE w.id=:id")
+            Query q = em.createQuery("UPDATE Woman w SET w.firstName=:fn WHERE id(w)=:id")
                     .setParameter("fn", "Coco")
                     .setParameter("id", id);
             System.out.println("### updating Cocoa to Coco using variable");
